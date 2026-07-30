@@ -27,3 +27,8 @@ env/
 # Windows
 Thumbs.db
 Desktop.ini
+
+# Local database
+data/*.db
+data/*.sqlite
+data/*.sqlite3
