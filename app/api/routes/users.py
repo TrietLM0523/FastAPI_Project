@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.api.dependencies import DBSession
+from app.core.security import hash_password
 from app.repositories.user import UserRepository
 from app.schemas.pagination import PaginatedResponse
 from app.schemas.user import (
@@ -40,9 +41,16 @@ async def create_user(
             detail="Email already exists",
         )
 
-    user = await repository.create(
-        payload.model_dump(mode="json"),
+    user_data = payload.model_dump(
+        exclude={"password"},
+        mode="json",
     )
+
+    user_data["hashed_password"] = hash_password(
+        payload.password,
+    )
+
+    user = await repository.create(user_data)
 
     return UserResponse.model_validate(user)
 
