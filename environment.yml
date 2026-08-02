@@ -1,0 +1,17 @@
+name: fastapi_practice
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - fastapi[standard]
+      - pydantic-settings
+      - pytest
+      - httpx
+      - ruff
+      - sqlalchemy[asyncio]>=2.0,<2.1
+      - alembic>=1.18,<2
+      - aiosqlite
