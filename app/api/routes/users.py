@@ -3,16 +3,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
-from app.api.dependencies import DBSession
-from app.core.security import hash_password
-from app.repositories.user import UserRepository
+from app.api.dependencies import AdminUser, CurrentUser, DBSession
 from app.schemas.pagination import PaginatedResponse
 from app.schemas.user import (
+    AdminUserUpdate,
     UserCreate,
     UserResponse,
     UserUpdate,
     UserWithTasks,
 )
+from app.services.exceptions import ConflictError, ForbiddenError, NotFoundError
+from app.services.user import UserService
 
 router = APIRouter(
     prefix="/users",
@@ -25,51 +26,26 @@ router = APIRouter(
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_user(
-    payload: UserCreate,
-    session: DBSession,
-) -> UserResponse:
-    repository = UserRepository(session)
-
-    existing_user = await repository.get_by_email(
-        str(payload.email),
-    )
-
-    if existing_user is not None:
+async def create_user(payload: UserCreate, session: DBSession) -> UserResponse:
+    try:
+        user = await UserService(session).register(payload)
+    except ConflictError as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already exists",
-        )
-
-    user_data = payload.model_dump(
-        exclude={"password"},
-        mode="json",
-    )
-
-    user_data["hashed_password"] = hash_password(
-        payload.password,
-    )
-
-    user = await repository.create(user_data)
+        ) from error
 
     return UserResponse.model_validate(user)
 
 
-@router.get(
-    "",
-    response_model=PaginatedResponse[UserResponse],
-)
+@router.get("", response_model=PaginatedResponse[UserResponse])
 async def list_users(
     session: DBSession,
+    admin_user: AdminUser,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> PaginatedResponse[UserResponse]:
-    repository = UserRepository(session)
-
-    users, total = await repository.list(
-        page=page,
-        page_size=page_size,
-    )
+    users, total = await UserService(session).list_users(page, page_size)
 
     return PaginatedResponse[UserResponse](
         items=[UserResponse.model_validate(user) for user in users],
@@ -80,90 +56,85 @@ async def list_users(
     )
 
 
-@router.get(
-    "/{user_id}",
-    response_model=UserWithTasks,
-)
+@router.get("/{user_id}", response_model=UserWithTasks)
 async def get_user(
     user_id: int,
     session: DBSession,
+    admin_user: AdminUser,
 ) -> UserWithTasks:
-    repository = UserRepository(session)
-
-    user = await repository.get_with_tasks(user_id)
-
-    if user is None:
+    try:
+        user = await UserService(session).get_user(user_id, with_tasks=True)
+    except NotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
-        )
+        ) from error
 
     return UserWithTasks.model_validate(user)
 
 
-@router.patch(
-    "/{user_id}",
-    response_model=UserResponse,
-)
+@router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(
     user_id: int,
     payload: UserUpdate,
     session: DBSession,
+    current_user: CurrentUser,
 ) -> UserResponse:
-    repository = UserRepository(session)
-
-    user = await repository.get_by_id(user_id)
-
-    if user is None:
+    try:
+        user = await UserService(session).update_user(
+            user_id,
+            payload,
+            current_user,
+        )
+    except NotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
-        )
+        ) from error
+    except ForbiddenError as error:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot update this user",
+        ) from error
+    except ConflictError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already exists",
+        ) from error
 
-    update_data = payload.model_dump(
-        exclude_unset=True,
-        mode="json",
-    )
-
-    new_email = update_data.get("email")
-
-    if new_email is not None:
-        existing_user = await repository.get_by_email(new_email)
-
-        if existing_user is not None and existing_user.id != user.id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already exists",
-            )
-
-    updated_user = await repository.update(
-        user,
-        update_data,
-    )
-
-    return UserResponse.model_validate(updated_user)
+    return UserResponse.model_validate(user)
 
 
-@router.delete(
-    "/{user_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
+@router.patch("/{user_id}/admin", response_model=UserResponse)
+async def admin_update_user(
+    user_id: int,
+    payload: AdminUserUpdate,
+    session: DBSession,
+    admin_user: AdminUser,
+) -> UserResponse:
+    try:
+        user = await UserService(session).admin_update(user_id, payload)
+    except NotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        ) from error
+
+    return UserResponse.model_validate(user)
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: int,
     session: DBSession,
+    admin_user: AdminUser,
 ) -> Response:
-    repository = UserRepository(session)
-
-    user = await repository.get_by_id(user_id)
-
-    if user is None:
+    try:
+        await UserService(session).delete_user(user_id)
+    except NotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
-        )
+        ) from error
 
-    await repository.delete(user)
-
-    return Response(
-        status_code=status.HTTP_204_NO_CONTENT,
-    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

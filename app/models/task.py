@@ -34,14 +34,15 @@ class Task(Base):
         nullable=True,
     )
 
-    is_completed: Mapped[bool] = mapped_column(
+    completed: Mapped[bool] = mapped_column(
+        "is_completed",
         Boolean,
         default=False,
         server_default=false(),
         nullable=False,
     )
 
-    user_id: Mapped[int] = mapped_column(
+    owner_id: Mapped[int] = mapped_column(
         ForeignKey(
             "users.id",
             ondelete="CASCADE",
@@ -63,6 +64,6 @@ class Task(Base):
         nullable=False,
     )
 
-    user: Mapped[User] = relationship(
+    owner: Mapped[User] = relationship(
         back_populates="tasks",
     )

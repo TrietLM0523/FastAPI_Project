@@ -1,15 +1,12 @@
-from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
-from app.main import app
-
-client = TestClient(app)
+from tests.conftest import API_PREFIX
 
 
-def test_health_check() -> None:
-    response = client.get("/api/v1/health")
+async def test_health_check(client: AsyncClient) -> None:
+    response = await client.get(f"{API_PREFIX}/health")
 
     assert response.status_code == 200
-
     assert response.json() == {
         "status": "healthy",
         "message": "FastAPI application is running",

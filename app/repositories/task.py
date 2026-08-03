@@ -13,17 +13,17 @@ class TaskRepository(BaseRepository[Task]):
         self,
         page: int = 1,
         page_size: int = 20,
-        user_id: int | None = None,
+        owner_id: int | None = None,
     ) -> tuple[list[Task], int]:
         offset = (page - 1) * page_size
 
         statement = select(Task)
         count_statement = select(func.count()).select_from(Task)
 
-        if user_id is not None:
-            statement = statement.where(Task.user_id == user_id)
+        if owner_id is not None:
+            statement = statement.where(Task.owner_id == owner_id)
             count_statement = count_statement.where(
-                Task.user_id == user_id,
+                Task.owner_id == owner_id,
             )
 
         statement = statement.order_by(Task.id).offset(offset).limit(page_size)
@@ -32,3 +32,15 @@ class TaskRepository(BaseRepository[Task]):
         total = await self.session.scalar(count_statement)
 
         return list(result.all()), int(total or 0)
+
+    async def get_by_id_and_owner(
+        self,
+        task_id: int,
+        owner_id: int,
+    ) -> Task | None:
+        statement = select(Task).where(
+            Task.id == task_id,
+            Task.owner_id == owner_id,
+        )
+
+        return await self.session.scalar(statement)

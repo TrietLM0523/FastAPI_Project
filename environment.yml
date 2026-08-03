@@ -5,6 +5,7 @@ dependencies:
       - fastapi[standard]
       - pydantic-settings
       - pytest
+      - pytest-asyncio
       - httpx
       - ruff
       - sqlalchemy[asyncio]>=2.0,<2.1

@@ -10,11 +10,7 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         debug=settings.debug,
     )
-
-    application.include_router(
-        api_router,
-        prefix=settings.api_prefix,
-    )
+    application.include_router(api_router, prefix=settings.api_prefix)
 
     return application
 
