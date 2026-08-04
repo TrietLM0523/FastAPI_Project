@@ -1,31 +1,17 @@
 from math import ceil
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, Query, Response, status
 
 from app.api.dependencies import CurrentUser, DBSession
 from app.schemas.pagination import PaginatedResponse
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
-from app.services.exceptions import ForbiddenError, NotFoundError
 from app.services.task import TaskService
 
 router = APIRouter(
     prefix="/tasks",
     tags=["Tasks"],
 )
-
-
-def raise_task_error(error: NotFoundError | ForbiddenError) -> None:
-    if isinstance(error, NotFoundError):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found",
-        ) from error
-
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="You do not have permission for this task",
-    ) from error
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -68,11 +54,7 @@ async def get_task(
     session: DBSession,
     current_user: CurrentUser,
 ) -> TaskResponse:
-    try:
-        task = await TaskService(session).get(task_id, current_user)
-    except (NotFoundError, ForbiddenError) as error:
-        raise_task_error(error)
-
+    task = await TaskService(session).get(task_id, current_user)
     return TaskResponse.model_validate(task)
 
 
@@ -83,11 +65,7 @@ async def update_task(
     session: DBSession,
     current_user: CurrentUser,
 ) -> TaskResponse:
-    try:
-        task = await TaskService(session).update(task_id, payload, current_user)
-    except (NotFoundError, ForbiddenError) as error:
-        raise_task_error(error)
-
+    task = await TaskService(session).update(task_id, payload, current_user)
     return TaskResponse.model_validate(task)
 
 
@@ -97,9 +75,5 @@ async def delete_task(
     session: DBSession,
     current_user: CurrentUser,
 ) -> Response:
-    try:
-        await TaskService(session).delete(task_id, current_user)
-    except (NotFoundError, ForbiddenError) as error:
-        raise_task_error(error)
-
+    await TaskService(session).delete(task_id, current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

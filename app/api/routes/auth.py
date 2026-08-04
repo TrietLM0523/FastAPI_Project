@@ -1,13 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.dependencies import CurrentUser, DBSession
 from app.schemas.auth import Token
 from app.schemas.user import UserResponse
 from app.services.auth import AuthService
-from app.services.exceptions import AuthenticationError, InactiveUserError
 
 router = APIRouter(
     prefix="/auth",
@@ -21,20 +20,7 @@ async def login(
     session: DBSession,
 ) -> Token:
     service = AuthService(session)
-
-    try:
-        user = await service.authenticate(form_data.username, form_data.password)
-    except AuthenticationError as error:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from error
-    except InactiveUserError as error:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is inactive",
-        ) from error
+    user = await service.authenticate(form_data.username, form_data.password)
 
     return Token(
         access_token=service.create_token(user),

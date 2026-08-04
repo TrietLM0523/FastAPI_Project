@@ -38,7 +38,7 @@ class TaskService:
         task = await self.tasks.get_by_id(task_id)
 
         if task is None:
-            raise NotFoundError
+            raise NotFoundError("Task not found")
 
         self._ensure_access(task, current_user)
         return task
@@ -61,4 +61,4 @@ class TaskService:
     @staticmethod
     def _ensure_access(task: Task, current_user: User) -> None:
         if current_user.role is not UserRole.ADMIN and task.owner_id != current_user.id:
-            raise ForbiddenError
+            raise ForbiddenError("You do not have permission for this task")

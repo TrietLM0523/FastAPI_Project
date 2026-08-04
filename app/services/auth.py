@@ -14,10 +14,10 @@ class AuthService:
         user = await self.users.get_by_email(email)
 
         if user is None or not verify_password(password, user.hashed_password):
-            raise AuthenticationError
+            raise AuthenticationError("Incorrect email or password")
 
         if not user.is_active:
-            raise InactiveUserError
+            raise InactiveUserError("User is inactive")
 
         return user
 

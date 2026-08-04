@@ -1,7 +1,7 @@
 from math import ceil
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, Query, Response, status
 
 from app.api.dependencies import AdminUser, CurrentUser, DBSession
 from app.schemas.pagination import PaginatedResponse
@@ -12,7 +12,6 @@ from app.schemas.user import (
     UserUpdate,
     UserWithTasks,
 )
-from app.services.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.services.user import UserService
 
 router = APIRouter(
@@ -27,14 +26,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_user(payload: UserCreate, session: DBSession) -> UserResponse:
-    try:
-        user = await UserService(session).register(payload)
-    except ConflictError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already exists",
-        ) from error
-
+    user = await UserService(session).register(payload)
     return UserResponse.model_validate(user)
 
 
@@ -62,14 +54,7 @@ async def get_user(
     session: DBSession,
     admin_user: AdminUser,
 ) -> UserWithTasks:
-    try:
-        user = await UserService(session).get_user(user_id, with_tasks=True)
-    except NotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        ) from error
-
+    user = await UserService(session).get_user(user_id, with_tasks=True)
     return UserWithTasks.model_validate(user)
 
 
@@ -80,28 +65,11 @@ async def update_user(
     session: DBSession,
     current_user: CurrentUser,
 ) -> UserResponse:
-    try:
-        user = await UserService(session).update_user(
-            user_id,
-            payload,
-            current_user,
-        )
-    except NotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        ) from error
-    except ForbiddenError as error:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You cannot update this user",
-        ) from error
-    except ConflictError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already exists",
-        ) from error
-
+    user = await UserService(session).update_user(
+        user_id,
+        payload,
+        current_user,
+    )
     return UserResponse.model_validate(user)
 
 
@@ -112,14 +80,7 @@ async def admin_update_user(
     session: DBSession,
     admin_user: AdminUser,
 ) -> UserResponse:
-    try:
-        user = await UserService(session).admin_update(user_id, payload)
-    except NotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        ) from error
-
+    user = await UserService(session).admin_update(user_id, payload)
     return UserResponse.model_validate(user)
 
 
@@ -129,12 +90,5 @@ async def delete_user(
     session: DBSession,
     admin_user: AdminUser,
 ) -> Response:
-    try:
-        await UserService(session).delete_user(user_id)
-    except NotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        ) from error
-
+    await UserService(session).delete_user(user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

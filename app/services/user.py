@@ -16,7 +16,7 @@ class UserService:
         email = str(payload.email)
 
         if await self.users.get_by_email(email) is not None:
-            raise ConflictError
+            raise ConflictError("Email already exists")
 
         data = payload.model_dump(exclude={"password"}, mode="json")
         data.update(
@@ -28,7 +28,7 @@ class UserService:
         try:
             return await self.users.create(data)
         except IntegrityError as error:
-            raise ConflictError from error
+            raise ConflictError("Email already exists") from error
 
     async def get_user(self, user_id: int, with_tasks: bool = False) -> User:
         if with_tasks:
@@ -37,7 +37,7 @@ class UserService:
             user = await self.users.get_by_id(user_id)
 
         if user is None:
-            raise NotFoundError
+            raise NotFoundError("User not found")
 
         return user
 
@@ -57,7 +57,7 @@ class UserService:
         user = await self.get_user(user_id)
 
         if actor.role is not UserRole.ADMIN and actor.id != user.id:
-            raise ForbiddenError
+            raise ForbiddenError("You cannot update this user")
 
         update_data = payload.model_dump(exclude_unset=True, mode="json")
         new_email = update_data.get("email")
@@ -65,12 +65,12 @@ class UserService:
         if new_email is not None:
             existing_user = await self.users.get_by_email(new_email)
             if existing_user is not None and existing_user.id != user.id:
-                raise ConflictError
+                raise ConflictError("Email already exists")
 
         try:
             return await self.users.update(user, update_data)
         except IntegrityError as error:
-            raise ConflictError from error
+            raise ConflictError("Email already exists") from error
 
     async def admin_update(
         self,
