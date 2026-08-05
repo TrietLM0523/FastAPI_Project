@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -57,3 +59,13 @@ def decode_access_token(token: str) -> str:
         raise jwt.InvalidTokenError("Token subject is missing")
 
     return subject
+
+
+def create_refresh_token() -> str:
+    """Create a high-entropy opaque refresh token."""
+    return secrets.token_urlsafe(48)
+
+
+def hash_token(token: str) -> str:
+    """Return the non-reversible representation persisted for a token."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

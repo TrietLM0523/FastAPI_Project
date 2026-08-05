@@ -138,3 +138,114 @@ async def test_inactive_user_returns_403(
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
+
+
+async def test_auth_register_refresh_logout_flow(client: AsyncClient) -> None:
+    register_response = await client.post(
+        f"{API_PREFIX}/auth/register",
+        json={
+            "email": "refresh@example.com",
+            "full_name": "Refresh User",
+            "password": "StrongPassword123!",
+        },
+    )
+    assert register_response.status_code == 201
+
+    login_response = await client.post(
+        f"{API_PREFIX}/auth/login",
+        data={"username": "refresh@example.com", "password": "StrongPassword123!"},
+    )
+    assert login_response.status_code == 200
+    first_refresh_token = login_response.json()["refresh_token"]
+
+    refresh_response = await client.post(
+        f"{API_PREFIX}/auth/refresh",
+        json={"refresh_token": first_refresh_token},
+    )
+    assert refresh_response.status_code == 200
+    rotated_token = refresh_response.json()["refresh_token"]
+    assert rotated_token != first_refresh_token
+
+    reused_response = await client.post(
+        f"{API_PREFIX}/auth/refresh",
+        json={"refresh_token": first_refresh_token},
+    )
+    assert reused_response.status_code == 401
+    assert reused_response.headers["www-authenticate"] == "Bearer"
+
+    logout_response = await client.post(
+        f"{API_PREFIX}/auth/logout", json={"refresh_token": rotated_token}
+    )
+    assert logout_response.status_code == 204
+    revoked_response = await client.post(
+        f"{API_PREFIX}/auth/refresh", json={"refresh_token": rotated_token}
+    )
+    assert revoked_response.status_code == 401
+
+
+async def test_user_profile_and_password_change_revoke_refresh_tokens(
+    client: AsyncClient,
+) -> None:
+    await client.post(
+        f"{API_PREFIX}/auth/register",
+        json={
+            "email": "profile@example.com",
+            "full_name": "Before",
+            "password": "StrongPassword123!",
+        },
+    )
+    login_response = await client.post(
+        f"{API_PREFIX}/auth/login",
+        data={"username": "profile@example.com", "password": "StrongPassword123!"},
+    )
+    access_token = login_response.json()["access_token"]
+    refresh_token = login_response.json()["refresh_token"]
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    me_response = await client.get(f"{API_PREFIX}/users/me", headers=headers)
+    assert me_response.status_code == 200
+    assert "hashed_password" not in me_response.json()
+
+    update_response = await client.patch(
+        f"{API_PREFIX}/users/me", json={"full_name": "After"}, headers=headers
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["full_name"] == "After"
+
+    wrong_response = await client.post(
+        f"{API_PREFIX}/users/me/change-password",
+        json={
+            "current_password": "WrongPassword123!",
+            "new_password": "NewStrongPassword123!",
+        },
+        headers=headers,
+    )
+    assert wrong_response.status_code == 401
+
+    change_response = await client.post(
+        f"{API_PREFIX}/users/me/change-password",
+        json={
+            "current_password": "StrongPassword123!",
+            "new_password": "NewStrongPassword123!",
+        },
+        headers=headers,
+    )
+    assert change_response.status_code == 204
+
+    refresh_response = await client.post(
+        f"{API_PREFIX}/auth/refresh", json={"refresh_token": refresh_token}
+    )
+    assert refresh_response.status_code == 401
+    old_login = await client.post(
+        f"{API_PREFIX}/auth/login",
+        data={"username": "profile@example.com", "password": "StrongPassword123!"},
+    )
+    assert old_login.status_code == 401
+    new_login = await client.post(
+        f"{API_PREFIX}/auth/login",
+        data={
+            "username": "profile@example.com",
+            "password": "NewStrongPassword123!",
+        },
+    )
+    assert new_login.status_code == 200

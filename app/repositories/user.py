@@ -17,7 +17,9 @@ class UserRepository(BaseRepository[User]):
 
     async def get_with_tasks(self, user_id: int) -> User | None:
         statement = (
-            select(User).options(selectinload(User.tasks)).where(User.id == user_id)
+            select(User)
+            .options(selectinload(User.created_tasks))
+            .where(User.id == user_id)
         )
 
         return await self.session.scalar(statement)

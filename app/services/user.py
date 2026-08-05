@@ -1,16 +1,29 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models.user import User, UserRole
+from app.repositories.refresh_token import RefreshTokenRepository
 from app.repositories.user import UserRepository
-from app.schemas.user import AdminUserUpdate, UserCreate, UserUpdate
-from app.services.exceptions import ConflictError, ForbiddenError, NotFoundError
+from app.schemas.user import (
+    AdminUserUpdate,
+    ChangePasswordRequest,
+    UserCreate,
+    UserUpdate,
+)
+from app.services.exceptions import (
+    AuthenticationError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+)
 
 
 class UserService:
     def __init__(self, session: AsyncSession) -> None:
+        self.session = session
         self.users = UserRepository(session)
+        self.refresh_tokens = RefreshTokenRepository(session)
 
     async def register(self, payload: UserCreate) -> User:
         email = str(payload.email)
@@ -85,3 +98,11 @@ class UserService:
     async def delete_user(self, user_id: int) -> None:
         user = await self.get_user(user_id)
         await self.users.delete(user)
+
+    async def change_password(self, user: User, payload: ChangePasswordRequest) -> None:
+        if not verify_password(payload.current_password, user.hashed_password):
+            raise AuthenticationError("Current password is incorrect")
+
+        user.hashed_password = hash_password(payload.new_password)
+        await self.refresh_tokens.revoke_all_for_user(user.id)
+        await self.session.commit()

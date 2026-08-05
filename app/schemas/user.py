@@ -53,7 +53,9 @@ class UserResponse(BaseModel):
 
 
 class UserWithTasks(UserResponse):
-    tasks: list[TaskResponse] = Field(default_factory=list)
+    tasks: list[TaskResponse] = Field(
+        default_factory=list, validation_alias="created_tasks"
+    )
 
 
 class AdminUserUpdate(BaseModel):
@@ -69,3 +71,10 @@ class AdminUserUpdate(BaseModel):
                 raise ValueError(f"{field_name} cannot be null")
 
         return self
+
+
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)

@@ -7,6 +7,7 @@ from app.api.dependencies import AdminUser, CurrentUser, DBSession
 from app.schemas.pagination import PaginatedResponse
 from app.schemas.user import (
     AdminUserUpdate,
+    ChangePasswordRequest,
     UserCreate,
     UserResponse,
     UserUpdate,
@@ -28,6 +29,33 @@ router = APIRouter(
 async def create_user(payload: UserCreate, session: DBSession) -> UserResponse:
     user = await UserService(session).register(payload)
     return UserResponse.model_validate(user)
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_profile(current_user: CurrentUser) -> UserResponse:
+    return UserResponse.model_validate(current_user)
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_current_user_profile(
+    payload: UserUpdate,
+    session: DBSession,
+    current_user: CurrentUser,
+) -> UserResponse:
+    user = await UserService(session).update_user(
+        current_user.id, payload, current_user
+    )
+    return UserResponse.model_validate(user)
+
+
+@router.post("/me/change-password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_current_user_password(
+    payload: ChangePasswordRequest,
+    session: DBSession,
+    current_user: CurrentUser,
+) -> Response:
+    await UserService(session).change_password(current_user, payload)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("", response_model=PaginatedResponse[UserResponse])

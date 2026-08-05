@@ -11,7 +11,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.refresh_token import RefreshToken
     from app.models.task import Task
+    from app.models.workspace import Workspace, WorkspaceMember
 
 
 class UserRole(StrEnum):
@@ -72,9 +74,25 @@ class User(Base):
         nullable=False,
     )
 
-    tasks: Mapped[list[Task]] = relationship(
-        back_populates="owner",
+    created_tasks: Mapped[list[Task]] = relationship(
+        foreign_keys="Task.created_by",
+        back_populates="creator",
         cascade="all, delete-orphan",
         passive_deletes=True,
         lazy="selectin",
+    )
+    assigned_tasks: Mapped[list[Task]] = relationship(
+        foreign_keys="Task.assignee_id", back_populates="assignee"
+    )
+    owned_workspaces: Mapped[list[Workspace]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan", passive_deletes=True
+    )
+    workspace_memberships: Mapped[list[WorkspaceMember]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
