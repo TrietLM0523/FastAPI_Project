@@ -1,0 +1,19 @@
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = [".pytest-tmp"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "B",
+    "UP",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = ["."]
+asyncio_mode = "auto"

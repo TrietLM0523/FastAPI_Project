@@ -1,0 +1,16 @@
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - fastapi[standard]
+      - pydantic-settings
+      - pytest
+      - pytest-asyncio
+      - httpx
+      - ruff
+      - sqlalchemy[asyncio]>=2.0,<2.1
+      - alembic>=1.18,<2
+      - aiosqlite
+      - pwdlib[argon2]
+      - PyJWT
+      - python-multipart
