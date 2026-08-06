@@ -17,7 +17,9 @@ class TaskRepository:
 
     async def get_by_id(self, task_id: int) -> Task | None:
         statement = (
-            select(Task).options(selectinload(Task.project)).where(Task.id == task_id)
+            select(Task)
+            .options(selectinload(Task.project), selectinload(Task.labels))
+            .where(Task.id == task_id)
         )
         return await self.session.scalar(statement)
 
@@ -41,6 +43,7 @@ class TaskRepository:
 
         statement = (
             select(Task)
+            .options(selectinload(Task.labels))
             .where(*filters)
             .order_by(Task.id)
             .offset((page - 1) * limit)
@@ -61,6 +64,7 @@ class TaskRepository:
         filters = [] if created_by is None else [Task.created_by == created_by]
         statement = (
             select(Task)
+            .options(selectinload(Task.labels))
             .where(*filters)
             .order_by(Task.id)
             .offset((page - 1) * page_size)

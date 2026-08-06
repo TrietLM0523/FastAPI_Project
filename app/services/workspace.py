@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import builtins
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,7 +70,7 @@ class WorkspaceService:
 
     async def list_members(
         self, workspace_id: int, actor: User
-    ) -> list[WorkspaceMember]:
+    ) -> builtins.list[WorkspaceMember]:
         await self.permissions.require_member(workspace_id, actor)
         return await self.members.list_members(workspace_id)
 

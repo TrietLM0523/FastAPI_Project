@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
@@ -125,7 +125,9 @@ async def handle_unexpected_error(request: Request, exc: Exception) -> JSONRespo
 
 
 def register_error_handlers(app: FastAPI) -> None:
-    app.add_exception_handler(ServiceError, handle_service_error)
-    app.add_exception_handler(StarletteHTTPException, handle_http_exception)
-    app.add_exception_handler(RequestValidationError, handle_validation_error)
+    app.add_exception_handler(ServiceError, cast(Any, handle_service_error))
+    app.add_exception_handler(StarletteHTTPException, cast(Any, handle_http_exception))
+    app.add_exception_handler(
+        RequestValidationError, cast(Any, handle_validation_error)
+    )
     app.add_exception_handler(Exception, handle_unexpected_error)

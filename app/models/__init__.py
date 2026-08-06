@@ -5,10 +5,13 @@ from app.models.user import User, UserRole
 from app.models.workspace import Workspace, WorkspaceMember, WorkspaceRole
 
 __all__ = [
+    "Comment",
+    "Label",
     "Project",
     "ProjectStatus",
     "RefreshToken",
     "Task",
+    "TaskLabel",
     "TaskPriority",
     "TaskStatus",
     "User",
@@ -17,3 +20,5 @@ __all__ = [
     "WorkspaceMember",
     "WorkspaceRole",
 ]
+from app.models.comment import Comment
+from app.models.label import Label, TaskLabel

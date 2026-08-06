@@ -1,4 +1,4 @@
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +26,7 @@ class BaseRepository(Generic[ModelT]):
         page_size: int = 20,
     ) -> tuple[list[ModelT], int]:
         offset = (page - 1) * page_size
-        order_column = self.model.id
+        order_column = cast(Any, self.model).id
 
         statement = (
             select(self.model).order_by(order_column).offset(offset).limit(page_size)

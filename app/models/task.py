@@ -17,6 +17,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.comment import Comment
+    from app.models.label import Label
     from app.models.project import Project
     from app.models.user import User
 
@@ -108,4 +110,15 @@ class Task(Base):
     )
     creator: Mapped[User] = relationship(
         foreign_keys=[created_by], back_populates="created_tasks"
+    )
+    labels: Mapped[list[Label]] = relationship(
+        secondary="task_labels",
+        back_populates="tasks",
+        lazy="selectin",
+        passive_deletes=True,
+    )
+    comments: Mapped[list[Comment]] = relationship(
+        back_populates="task",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

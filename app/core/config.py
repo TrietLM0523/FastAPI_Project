@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 AppEnvironment = Literal["development", "test", "production"]
@@ -9,12 +9,20 @@ LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
 class Settings(BaseSettings):
-    app_name: str = "FastAPI Practice"
-    app_version: str = "0.1.0"
+    app_name: str = "TaskHub API"
+    app_version: str = "1.0.0"
+    app_description: str = (
+        "Collaborative workspace, project, task, label, and comment management API."
+    )
     debug: bool = True
     app_env: AppEnvironment = "development"
     log_level: LogLevel = "INFO"
-    api_prefix: str = "/api/v1"
+    api_prefix: str = Field(
+        default="/api/v1",
+        validation_alias=AliasChoices(
+            "API_V1_PREFIX", "API_PREFIX", "api_v1_prefix", "api_prefix"
+        ),
+    )
     allowed_hosts: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["localhost", "127.0.0.1", "test"]
     )
@@ -22,16 +30,35 @@ class Settings(BaseSettings):
         default_factory=lambda: [
             "http://localhost:3000",
             "http://127.0.0.1:3000",
-        ]
+        ],
+        validation_alias=AliasChoices(
+            "BACKEND_CORS_ORIGINS",
+            "CORS_ORIGINS",
+            "backend_cors_origins",
+            "cors_origins",
+        ),
     )
 
-    database_url: str = "sqlite+aiosqlite:///./data/app.db"
+    database_url: str = Field(default="sqlite+aiosqlite:///./data/app.db", min_length=1)
     database_echo: bool = False
 
-    secret_key: str = "development-secret-key-change-me"
+    secret_key: str = Field(
+        default="development-secret-key-change-me",
+        min_length=32,
+        validation_alias=AliasChoices(
+            "JWT_SECRET_KEY", "SECRET_KEY", "jwt_secret_key", "secret_key"
+        ),
+    )
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
-    refresh_token_expire_days: int = 30
+    access_token_expire_minutes: int = Field(default=30, gt=0)
+    refresh_token_expire_days: int = Field(default=30, gt=0)
+
+    redis_url: str = "redis://localhost:6379/0"
+    cache_enabled: bool = True
+    cache_fail_fast: bool = False
+    task_list_cache_ttl_seconds: int = Field(default=60, gt=0)
+
+    email_backend: Literal["logging"] = "logging"
 
     @field_validator("debug", mode="before")
     @classmethod

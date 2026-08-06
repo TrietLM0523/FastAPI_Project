@@ -1,9 +1,15 @@
 from math import ceil
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Query, Response, status
 
-from app.api.dependencies import CurrentUser, DBSession
+from app.api.dependencies import (
+    CurrentUser,
+    DBSession,
+    NotificationSenderDep,
+    TaskCache,
+)
+from app.background.notifications import BackgroundNotificationScheduler
 from app.models.task import TaskPriority, TaskStatus
 from app.schemas.pagination import PaginatedResponse
 from app.schemas.task import (
@@ -29,8 +35,9 @@ async def create_legacy_task(
     payload: LegacyTaskCreate,
     session: DBSession,
     current_user: CurrentUser,
+    cache: TaskCache,
 ) -> TaskResponse:
-    task = await TaskService(session).create_legacy(payload, current_user)
+    task = await TaskService(session, cache).create_legacy(payload, current_user)
     return TaskResponse.model_validate(task)
 
 
@@ -64,8 +71,14 @@ async def create_task(
     payload: TaskCreate,
     session: DBSession,
     current_user: CurrentUser,
+    cache: TaskCache,
+    background_tasks: BackgroundTasks,
+    notification_sender: NotificationSenderDep,
 ) -> TaskResponse:
-    task = await TaskService(session).create(project_id, payload, current_user)
+    scheduler = BackgroundNotificationScheduler(background_tasks, notification_sender)
+    task = await TaskService(session, cache, scheduler).create(
+        project_id, payload, current_user
+    )
     return TaskResponse.model_validate(task)
 
 
@@ -74,13 +87,14 @@ async def list_tasks(
     project_id: int,
     session: DBSession,
     current_user: CurrentUser,
+    cache: TaskCache,
     status_filter: Annotated[TaskStatus | None, Query(alias="status")] = None,
     priority: Annotated[TaskPriority | None, Query()] = None,
     assignee_id: Annotated[int | None, Query(gt=0)] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> TaskListResponse:
-    tasks, total = await TaskService(session).list_by_project(
+    return await TaskService(session, cache).list_by_project(
         project_id,
         current_user,
         status=status_filter,
@@ -88,13 +102,6 @@ async def list_tasks(
         assignee_id=assignee_id,
         page=page,
         limit=limit,
-    )
-    return TaskListResponse(
-        items=[TaskResponse.model_validate(item) for item in tasks],
-        total=total,
-        page=page,
-        limit=limit,
-        pages=ceil(total / limit) if total else 0,
     )
 
 
@@ -112,8 +119,14 @@ async def update_task(
     payload: TaskUpdate,
     session: DBSession,
     current_user: CurrentUser,
+    cache: TaskCache,
+    background_tasks: BackgroundTasks,
+    notification_sender: NotificationSenderDep,
 ) -> TaskResponse:
-    task = await TaskService(session).update(task_id, payload, current_user)
+    scheduler = BackgroundNotificationScheduler(background_tasks, notification_sender)
+    task = await TaskService(session, cache, scheduler).update(
+        task_id, payload, current_user
+    )
     return TaskResponse.model_validate(task)
 
 
@@ -123,14 +136,20 @@ async def update_task_status(
     payload: TaskStatusUpdate,
     session: DBSession,
     current_user: CurrentUser,
+    cache: TaskCache,
 ) -> TaskResponse:
-    task = await TaskService(session).update_status(task_id, payload, current_user)
+    task = await TaskService(session, cache).update_status(
+        task_id, payload, current_user
+    )
     return TaskResponse.model_validate(task)
 
 
 @router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(
-    task_id: int, session: DBSession, current_user: CurrentUser
+    task_id: int,
+    session: DBSession,
+    current_user: CurrentUser,
+    cache: TaskCache,
 ) -> Response:
-    await TaskService(session).delete(task_id, current_user)
+    await TaskService(session, cache).delete(task_id, current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

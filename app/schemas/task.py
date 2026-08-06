@@ -11,6 +11,7 @@ from pydantic import (
 )
 
 from app.models.task import TaskPriority, TaskStatus
+from app.schemas.label import LabelResponse
 
 
 class TaskCreate(BaseModel):
@@ -83,14 +84,15 @@ class TaskResponse(BaseModel):
     created_by: int
     created_at: datetime
     updated_at: datetime
+    labels: list[LabelResponse] = Field(default_factory=list)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def owner_id(self) -> int:
         """Deprecated Day 5 compatibility alias for created_by."""
         return self.created_by
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def completed(self) -> bool:
         """Deprecated Day 5 compatibility projection of status."""

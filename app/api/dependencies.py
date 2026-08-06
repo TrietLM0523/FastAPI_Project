@@ -1,10 +1,12 @@
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.background.notifications import LoggingEmailSender, NotificationSender
+from app.cache.task_list import TaskListCache
 from app.core.config import settings
 from app.core.security import decode_access_token
 from app.db.session import get_db_session
@@ -67,3 +69,19 @@ async def require_admin(current_user: CurrentUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
+
+
+def get_task_list_cache(request: Request) -> TaskListCache:
+    return request.app.state.task_list_cache
+
+
+TaskCache = Annotated[TaskListCache, Depends(get_task_list_cache)]
+
+notification_sender: NotificationSender = LoggingEmailSender()
+
+
+def get_notification_sender() -> NotificationSender:
+    return notification_sender
+
+
+NotificationSenderDep = Annotated[NotificationSender, Depends(get_notification_sender)]
